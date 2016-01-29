@@ -11,6 +11,7 @@ add_definitions(-DVERSION="0.28" -DGENERIC_API_VERSION="0.28" -DGENERIC_LIBRARY_
 find_package(Leptonica)
 
 file (GLOB_RECURSE obj RELATIVE "${PROJECT_SOURCE_DIR}" "src/*.cc")
+file (GLOB_RECURSE inc RELATIVE "${PROJECT_SOURCE_DIR}" "src/*.h")
 set(obj "src/jbig2arith.cc" "src/jbig2comparator.cc" "src/jbig2enc.cc" "src/jbig2sym.cc")
 if (LEPTONICA_FOUND)
     add_library(jbig2enc SHARED ${obj})
@@ -25,5 +26,5 @@ if (LEPTONICA_FOUND)
         install (TARGETS jbig2enc DESTINATION lib)
     endif()
 # install header
-    install (DIRECTORY include/ DESTINATION include/jbig2enc)
+    install (FILES ${inc} DESTINATION include/jbig2enc)
 endif()

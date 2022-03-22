@@ -54,8 +54,6 @@ usage(const char *argv0) {
   fprintf(stderr, "  -4: upsample 4x before thresholding\n");
   fprintf(stderr, "  -S: remove images from mixed input and save separately\n");
   fprintf(stderr, "  -j --jpeg-output: write images from mixed input as JPEG\n");
-  fprintf(stderr, "  -a --auto-thresh: use automatic thresholding in symbol encoder\n");
-  fprintf(stderr, "  --no-hash: disables use of hash function for automatic thresholding\n");
   fprintf(stderr, "  -V --version: version info\n");
   fprintf(stderr, "  -v: be verbose\n");
 }
@@ -216,8 +214,6 @@ main(int argc, char **argv) {
   l_int32 img_fmt = IFF_PNG;
   const char *img_ext = "png";
   bool segment = false;
-  bool auto_thresh = false;
-  bool hash = true;
   int i;
 
   #ifdef WIN32
@@ -225,6 +221,7 @@ main(int argc, char **argv) {
     if (result == -1)
       fprintf(stderr, "Cannot set mode to binary for stdout\n");
   #endif
+
 
   for (i = 1; i < argc; ++i) {
     if (strcmp(argv[i], "-h") == 0 ||
@@ -336,18 +333,6 @@ main(int argc, char **argv) {
       continue;
     }
 
-    // engage auto thresholding
-    if (strcmp(argv[i], "--auto-thresh") == 0 ||
-        strcmp(argv[i], "-a") == 0 ) {
-      auto_thresh = true;
-      continue;
-    }
-
-    if (strcmp(argv[i], "--no-hash") == 0) {
-      hash = false;
-      continue;
-    }
-
     if (strcmp(argv[i], "-v") == 0) {
       verbose = true;
       continue;
@@ -397,7 +382,6 @@ main(int argc, char **argv) {
     PIX *source;
     if (numsubimages<=1) {
       source = pixRead(argv[i]);
-      numsubimages = 0;
     } else {
       source = pixReadTiff(argv[i], subimage++);
     }
@@ -481,14 +465,6 @@ main(int argc, char **argv) {
     num_pages++;
     if (subimage==numsubimages) {
       i++;
-    }
-  }
-
-  if (auto_thresh) {
-    if (hash) {
-      jbig2enc_auto_threshold_using_hash(ctx);
-    } else {
-      jbig2enc_auto_threshold(ctx);
     }
   }
 

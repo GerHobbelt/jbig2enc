@@ -360,13 +360,13 @@ main(int argc, char **argv) {
       char *endptr;
       long t_dpi = strtol(argv[i+1], &endptr, 10);
       if (*endptr) {
-	fprintf(stderr, "Cannot parse int value: %s\n", argv[i+1]);
-	usage(argv[0]);
-	return 1;
+        fprintf(stderr, "Cannot parse int value: %s\n", argv[i+1]);
+        usage(argv[0]);
+        return 1;
       }
       if (t_dpi <= 0 || t_dpi > 9600) {
-	fprintf(stderr, "Invalid dpi: (1..9600)\n");
-	return 12;
+        fprintf(stderr, "Invalid dpi: (1..9600)\n");
+        return 12;
       } 
       dpi = (int)t_dpi;
       i++;

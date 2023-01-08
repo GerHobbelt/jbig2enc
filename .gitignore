@@ -28,3 +28,6 @@ install-sh
 *.in
 missing
 ltmain.sh
+
+/build*
+/stduviewer*

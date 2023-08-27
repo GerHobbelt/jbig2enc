@@ -1,4 +1,4 @@
-This is an encoder for [JBIG2](fcd14492.pdf).
+This is an encoder for [JBIG2](doc/fcd14492.pdf).
 
 JBIG2 encodes bi-level (1 bpp) images using a number of clever tricks to get
 better compression than G4. This encoder can:
@@ -25,7 +25,7 @@ See the `jbig2enc.h` header for the high level API, or the `jbig2` program for a
 example of usage:
 
 ```
-$ jbig2 -s -p -v *.jpg && jbig2topdf.py output >out.pdf
+$ jbig2 -s -a -p -v *.jpg && jbig2topdf.py output >out.pdf
 ```
 or
 ```

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 # Copyright 2006 Google Inc.
 # Author: agl@imperialviolet.org (Adam Langley)
 #

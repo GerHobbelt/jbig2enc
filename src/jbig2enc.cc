@@ -51,7 +51,11 @@
 // Returns the version identifier as a static string.
 // -----------------------------------------------------------------------------
 char const *getVersion() {
+#if defined(VERSION)
   return VERSION;
+#else
+  return "0.29";
+#endif
 }
 
 // -----------------------------------------------------------------------------

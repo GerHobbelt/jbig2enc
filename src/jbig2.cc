@@ -35,6 +35,8 @@
 
 #include "jbig2enc.h"
 
+#include "monolithic_examples.h"
+
 #if defined(WIN32)
 #define WINBINARY O_BINARY
 #else
@@ -83,6 +85,7 @@ pixInfo(PIX *pix, const char *msg) {
 // Windows, sadly, lacks asprintf
 // -----------------------------------------------------------------------------
 #include <stdarg.h>
+
 int
 asprintf(char **strp, const char *fmt, ...) {
     va_list va;
@@ -206,8 +209,13 @@ segment_image(PIX *pixb, PIX *piximg) {
   return pixd1;
 }
 
+
+#if defined(BUILD_MONOLITHIC)
+#define main(cnt, arr)      jbig2enc_main(cnt, arr)
+#endif
+
 int
-main(int argc, char **argv) {
+main(int argc, const char **argv) {
   bool duplicate_line_removal = false;
   bool pdfmode = false;
   float threshold = 0.92;
@@ -235,14 +243,13 @@ main(int argc, char **argv) {
     if (strcmp(argv[i], "-h") == 0 ||
         strcmp(argv[i], "--help") == 0) {
       usage(argv[0]);
-      return 0;
-      continue;
+      return EXIT_FAILURE;
     }
 
     if (strcmp(argv[i], "-V") == 0 ||
         strcmp(argv[i], "--version") == 0) {
       fprintf(stderr, "jbig2enc %s\n", getVersion());
-      return 0;
+      return EXIT_FAILURE;
     }
 
     if (strcmp(argv[i], "-b") == 0 ||
@@ -275,8 +282,9 @@ main(int argc, char **argv) {
       fprintf(stderr, "Refinement broke in recent releases since it's "
                       "rarely used. If you need it you should bug "
                       "agl@imperialviolet.org to fix it\n");
-      return 1;
-      refine = true;
+      return EXIT_FAILURE;
+
+			refine = true;
       continue;
     }
 
@@ -313,7 +321,7 @@ main(int argc, char **argv) {
       if (*endptr) {
         fprintf(stderr, "Cannot parse float value: %s\n", argv[i+1]);
         usage(argv[0]);
-        return 1;
+        return EXIT_FAILURE;
       }
 
       if (threshold > 0.97 || threshold < 0.4) {
@@ -331,7 +339,7 @@ main(int argc, char **argv) {
       if (*endptr) {
         fprintf(stderr, "Cannot parse int value: %s\n", argv[i+1]);
         usage(argv[0]);
-        return 1;
+        return EXIT_FAILURE;
       }
       if (bw_threshold < 0 || bw_threshold > 255) {
         fprintf(stderr, "Invalid bw threshold: (0..255)\n");
@@ -365,7 +373,7 @@ main(int argc, char **argv) {
       if (*endptr) {
         fprintf(stderr, "Cannot parse int value: %s\n", argv[i+1]);
         usage(argv[0]);
-        return 1;
+        return EXIT_FAILURE;
       }
       if (t_dpi <= 0 || t_dpi > 9600) {
         fprintf(stderr, "Invalid dpi: (1..9600)\n");
@@ -407,12 +415,12 @@ main(int argc, char **argv) {
       if (verbose) fprintf(stderr, "Processing \"%s\"...\n", argv[i]);
       if ((fp=lept_fopen(argv[i], "r"))==NULL) {
         fprintf(stderr, "Unable to open \"%s\"\n", argv[i]);
-        return 1;
+        return EXIT_FAILURE;
       }
       l_int32 filetype;
       findFileFormatStream(fp, &filetype);
       if (filetype==IFF_TIFF && tiffGetCount(fp, &numsubimages)) {
-        return 1;
+        return EXIT_FAILURE;
       }
       lept_fclose(fp);
     }
@@ -437,7 +445,7 @@ main(int argc, char **argv) {
     PIX *pixl, *gray, *pixt;
     if ((pixl = pixRemoveColormap(source, REMOVE_CMAP_BASED_ON_SRC)) == NULL) {
       fprintf(stderr, "Failed to remove colormap from %s\n", argv[i]);
-      return 1;
+      return EXIT_FAILURE;
     }
     pixDestroy(&source);
     pageno++;
@@ -450,7 +458,7 @@ main(int argc, char **argv) {
         gray = pixClone(pixl);
       } else {
         fprintf(stderr, "Unsupported input image depth: %d\n", pixl->d);
-        return 1;
+        return EXIT_FAILURE;
       }
       if (up2) {
         pixt = pixScaleGray2xLIThresh(gray, bw_threshold);
@@ -465,7 +473,7 @@ main(int argc, char **argv) {
     }
     if (!pixt) {
       fprintf(stderr, "Failed to convert input image to binary\n");
-      return 1;
+      return EXIT_FAILURE;
     }
     if (verbose)
       pixInfo(pixt, "thresholded image:");
@@ -501,7 +509,7 @@ main(int argc, char **argv) {
       ret = jbig2_encode_generic(pixt, !pdfmode, 0, 0, duplicate_line_removal,
                                  &length);
       write(1, ret, length);
-      return 0;
+      return EXIT_SUCCESS;
     }
 
     jbig2_add_page(ctx, pixt);
@@ -528,7 +536,8 @@ main(int argc, char **argv) {
     asprintf(&filename, "%s.sym", basename);
     const int fd = open(filename, O_WRONLY | O_TRUNC | O_CREAT | WINBINARY, 0600);
     free(filename);
-    if (fd < 0) abort();
+    if (fd < 0)
+			abort();
     write(fd, ret, length);
     close(fd);
   } else {
@@ -553,5 +562,7 @@ main(int argc, char **argv) {
   }
 
   jbig2_destroy(ctx);
+
+	return EXIT_SUCCESS;
 }
 

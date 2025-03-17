@@ -39,18 +39,18 @@ AM_CONDITIONAL(MINGW, false)
 #
 #############################
 AC_CANONICAL_HOST
-case $host_os in
+case "${host_os}" in
 	mingw*)
-		AC_DEFINE_UNQUOTED(MINGW,1,[This is a MinGW system])
-		AC_CHECK_LIB(ws2_32, _head_libws2_32_a,,
-			echo "Error! zlib not detected."
-			exit -1)
-		LIBS="$LIBS -lws2_32"
+		AC_DEFINE_UNQUOTED([MINGW], 1, [This is a MinGW system])
+		dnl Try to detect winsock2 on mingw32/64 systems.
+		AC_CHECK_LIB(ws2_32, [_head_libws2_32_a])
+		AC_CHECK_LIB(ws2_32, [_head_lib32_libws2_32_a])
+		AC_CHECK_LIB(ws2_32, [_head_lib64_libws2_32_a])
 		;;
-	 *)
+	*)
 		# default
 		;;
-esac 
+esac
 
 # Check if rpath is disabled
 AC_MSG_CHECKING(whether to use rpath)
@@ -75,21 +75,13 @@ AC_CHECK_LIB([leptonica], [findFileFormatStream], [], [
 			echo "Error! Leptonica not detected."
 			exit -1
 			])
-AC_CHECK_FUNCS(expandBinaryPower2Low,,)
-# test for function - it should detect leptonica dependencies
+PKG_CHECK_MODULES([LEPTONICA], [lept >= 1.74], [have_lept=true], [have_lept=false])
+if $have_lept; then
+	CPPFLAGS="$CPPFLAGS $LEPTONICA_CFLAGS"
+else
+	AC_MSG_ERROR([Leptonica 1.74 or higher is required. Try to install libleptonica-dev package.])
+fi
 
-# Check for possible dependencies of leptonica.
-# Because at the moment there is no way how to identify used libraries
-# all presented libraries will be used...
-AC_CHECK_LIB([tiff], TIFFOpen )
-AC_CHECK_LIB([png], png_read_png )
-AC_CHECK_LIB([jpeg], jpeg_read_scanlines )
-AC_CHECK_LIB([gif], DGifOpenFileHandle )
-AC_CHECK_LIB([webp], WebPGetInfo )
-AC_CHECK_LIB([z], [zlibVersion], [], [
-			echo "Error! zlib not detected."
-			exit -1
-			])
 AC_CHECK_LIB([m], [sqrt], [], [
 			echo "Error! libm not detected."
 			exit -1

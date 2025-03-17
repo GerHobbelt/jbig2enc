@@ -45,6 +45,17 @@
 #define WINBINARY 0
 #endif
 
+#define JBIG2_THRESHOLD_MIN 0.4f
+#define JBIG2_THRESHOLD_MAX 0.97f
+#define JBIG2_THRESHOLD_DEF 0.92f
+#define JBIG2_WEIGHT_MIN 0.1f
+#define JBIG2_WEIGHT_MAX 0.9f
+#define JBIG2_WEIGHT_DEF 0.5f
+#define BW_THRESHOLD_MIN 0
+#define BW_THRESHOLD_MAX 255
+#define BW_LOCAL_THRESHOLD_DEF 200
+#define BW_GLOBAL_THRESHOLD_DEF 128
+
 static void
 usage(const char *argv0) {
   fprintf(stderr, "Usage: %s [options] <input filenames...>\n", argv0);
@@ -53,8 +64,11 @@ usage(const char *argv0) {
   fprintf(stderr, "  -d --duplicate-line-removal: use TPGD in generic region coder\n");
   fprintf(stderr, "  -p --pdf: produce PDF ready data\n");
   fprintf(stderr, "  -s --symbol-mode: use text region, not generic coder\n");
-  fprintf(stderr, "  -t <threshold>: set classification threshold for symbol coder (def: 0.92)\n");
-  fprintf(stderr, "  -T <bw threshold>: set 1 bpp threshold (def: 188)\n");
+  fprintf(stderr, "  -t <threshold>: set classification threshold for symbol coder (def: %0.2f)\n", JBIG2_THRESHOLD_DEF);
+  fprintf(stderr, "  -w <weight>: set classification weight for symbol coder (def: %0.2f)\n", JBIG2_WEIGHT_DEF);
+  fprintf(stderr, "  -T <bw threshold>: set 1 bpp threshold (def: %d)\n", BW_LOCAL_THRESHOLD_DEF);
+  fprintf(stderr, "  -G --global: use global BW threshold on 8 bpp images;\n"
+                  "               the default is to use local (adaptive) thresholding\n");
   fprintf(stderr, "  -r --refine: use refinement (requires -s: lossless)\n");
   fprintf(stderr, "  -O <outfile>: dump thresholded image as PNG\n");
   fprintf(stderr, "  -2: upsample 2x before thresholding\n");
@@ -90,17 +104,17 @@ pixInfo(PIX *pix, const char *msg) {
 
 int
 asprintf(char **strp, const char *fmt, ...) {
-    va_list va;
-    va_start(va, fmt);
+  va_list va;
+  va_start(va, fmt);
 
-    const int required = vsnprintf(NULL, 0, fmt, va);
-    char *const buffer = (char *) malloc(required + 1);
-    const int ret = vsnprintf(buffer, required + 1, fmt, va);
-    *strp = buffer;
+  const int required = vsnprintf(NULL, 0, fmt, va);
+  char *const buffer = (char *) malloc(required + 1);
+  const int ret = vsnprintf(buffer, required + 1, fmt, va);
+  *strp = buffer;
 
-    va_end(va);
+  va_end(va);
 
-    return ret;
+  return ret;
 }
 #endif
 
@@ -212,12 +226,14 @@ int
 main(int argc, const char **argv) {
   bool duplicate_line_removal = false;
   bool pdfmode = false;
-  float threshold = 0.92;
-  int bw_threshold = 188;
+  bool globalmode = false;
+  int bw_threshold = BW_LOCAL_THRESHOLD_DEF;
+  float threshold = JBIG2_THRESHOLD_DEF;
+  float weight = JBIG2_WEIGHT_DEF;
   bool symbol_mode = false;
   bool refine = false;
   bool up2 = false, up4 = false;
-  const char *output_threshold = NULL;
+  const char *output_threshold_image = NULL;
   const char *basename = "output";
   l_int32 img_fmt = IFF_PNG;
   const char *img_ext = "png";
@@ -292,7 +308,7 @@ main(int argc, const char **argv) {
     }
 
     if (strcmp(argv[i], "-O") == 0) {
-      output_threshold = argv[i+1];
+      output_threshold_image = argv[i+1];
       i++;
       continue;
     }
@@ -318,15 +334,46 @@ main(int argc, const char **argv) {
         return EXIT_FAILURE;
       }
 
-      if (threshold > 0.97 || threshold < 0.4) {
+      if ((threshold < JBIG2_THRESHOLD_MIN) ||
+          (threshold > JBIG2_THRESHOLD_MAX)) {
         fprintf(stderr, "Invalid value for threshold\n");
-        fprintf(stderr, "(must be between 0.4 and 0.97)\n");
+        fprintf(stderr, "(must be between %0.2f and %0.2f)\n",
+                JBIG2_THRESHOLD_MIN, JBIG2_THRESHOLD_MAX);
+        return 10;
+      }
+      i++;
+      continue;
+     }
+
+    if (strcmp(argv[i], "-w") == 0) {
+      char *endptr;
+      weight = strtod(argv[i+1], &endptr);
+      if (*endptr) {
+        fprintf(stderr, "Cannot parse float value: %s\n", argv[i+1]);
+        usage(argv[0]);
+        return 1;
+      }
+
+      if ((weight < JBIG2_WEIGHT_MIN) || (weight > JBIG2_WEIGHT_MAX)) {
+        fprintf(stderr, "Invalid value for weight\n");
+        fprintf(stderr, "(must be between %0.2f and %0.2f)\n",
+                JBIG2_WEIGHT_MIN, JBIG2_WEIGHT_MAX);
         return 10;
       }
       i++;
       continue;
     }
 
+    // Local BW thresholding is the default.  However, if global
+    // BW thresholding is requested, use its default threshold.
+    if (strcmp(argv[i], "-G") == 0 ||
+        strcmp(argv[i], "--global") == 0) {
+      globalmode = true;
+      bw_threshold = BW_GLOBAL_THRESHOLD_DEF;
+      continue;
+    }
+
+    // If a BW threshold value is requested, overwrite the default value.
     if (strcmp(argv[i], "-T") == 0) {
       char *endptr;
       bw_threshold = strtol(argv[i+1], &endptr, 10);
@@ -335,8 +382,9 @@ main(int argc, const char **argv) {
         usage(argv[0]);
         return EXIT_FAILURE;
       }
-      if (bw_threshold < 0 || bw_threshold > 255) {
-        fprintf(stderr, "Invalid bw threshold: (0..255)\n");
+      if (bw_threshold < BW_THRESHOLD_MIN || bw_threshold > BW_THRESHOLD_MAX) {
+        fprintf(stderr, "Invalid bw threshold: (%d..%d)\n",
+                BW_THRESHOLD_MIN, BW_THRESHOLD_MAX);
         return 11;
       }
       i++;
@@ -398,7 +446,8 @@ main(int argc, const char **argv) {
     return 6;
   }
 
-  struct jbig2ctx *ctx = jbig2_init(threshold, 0.5, 0, 0, !pdfmode, refine ? 10 : -1);
+  struct jbig2ctx *ctx = jbig2_init(threshold, weight, 0, 0,
+                         !pdfmode, refine ? 10 : -1);
   int pageno = -1;
 
   int numsubimages=0, subimage=0, num_pages = 0;
@@ -436,7 +485,7 @@ main(int argc, const char **argv) {
     if (verbose)
       pixInfo(source, "source image:");
 
-    PIX *pixl, *gray, *pixt;
+    PIX *pixl, *gray, *adapt, *pixt;
     if ((pixl = pixRemoveColormap(source, REMOVE_CMAP_BASED_ON_SRC)) == NULL) {
       fprintf(stderr, "Failed to remove colormap from %s\n", argv[i]);
       return EXIT_FAILURE;
@@ -454,14 +503,20 @@ main(int argc, const char **argv) {
         fprintf(stderr, "Unsupported input image depth: %d\n", pixl->d);
         return EXIT_FAILURE;
       }
-      if (up2) {
-        pixt = pixScaleGray2xLIThresh(gray, bw_threshold);
-      } else if (up4) {
-        pixt = pixScaleGray4xLIThresh(gray, bw_threshold);
+      if (!globalmode) {
+        adapt = pixCleanBackgroundToWhite(gray, NULL, NULL, 1.0, 90, 190);
       } else {
-        pixt = pixThresholdToBinary(gray, bw_threshold);
+        adapt = pixClone(gray);
       }
       pixDestroy(&gray);
+      if (up2) {
+        pixt = pixScaleGray2xLIThresh(adapt, bw_threshold);
+      } else if (up4) {
+        pixt = pixScaleGray4xLIThresh(adapt, bw_threshold);
+      } else {
+        pixt = pixThresholdToBinary(adapt, bw_threshold);
+      }
+      pixDestroy(&adapt);
     } else {
       pixt = pixClone(pixl);
     }
@@ -472,8 +527,8 @@ main(int argc, const char **argv) {
     if (verbose)
       pixInfo(pixt, "thresholded image:");
 
-    if (output_threshold) {
-      pixWrite(output_threshold, pixt, IFF_PNG);
+    if (output_threshold_image) {
+      pixWrite(output_threshold_image, pixt, IFF_PNG);
     }
 
     if (segment && pixl->d > 1) {

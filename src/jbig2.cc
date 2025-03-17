@@ -259,6 +259,16 @@ main(int argc, const char **argv) {
     if (strcmp(argv[i], "-V") == 0 ||
         strcmp(argv[i], "--version") == 0) {
       fprintf(stderr, "jbig2enc %s\n", getVersion());
+
+      char *versionStrP;
+      versionStrP = getLeptonicaVersion();
+      printf(" %s\n", versionStrP);
+      lept_free(versionStrP);
+
+      versionStrP = getImagelibVersions();
+      printf("  %s\n", versionStrP);
+      lept_free(versionStrP);
+	  
       return EXIT_FAILURE;
     }
 

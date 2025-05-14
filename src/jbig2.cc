@@ -260,8 +260,8 @@ main(int argc, const char **argv) {
         strcmp(argv[i], "--version") == 0) {
       fprintf(stderr, "jbig2enc %s\n", getVersion());
 
-      char *versionStrP;
-      versionStrP = getLeptonicaVersion();
+	  // fix error C2440: '=': cannot convert from 'const char *' to 'char *'
+      const char *versionStrP = getLeptonicaVersion();
       fprintf(stderr, " %s\n", versionStrP);
       lept_free(versionStrP);
 

@@ -93,7 +93,7 @@ pixInfo(PIX *pix, const char *msg) {
     return;
   }
   fprintf(stderr, "%u x %u (%d bits) %udpi x %udpi, refcount = %u\n",
-          pix->w, pix->h, pix->d, pix->xres, pix->yres, pix->refcount);
+          pix->w, pix->h, pix->d, pix->xres, pix->yres, (unsigned)pix->refcount);
 }
 
 #ifdef WIN32
